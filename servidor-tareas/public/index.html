@@ -568,7 +568,34 @@
     function iniciarPanel(user) {
         usuarioActivo = user;
         document.getElementById('login-screen').classList.add('hidden');
+        
+        // Hacemos que el botón superior sea visualmente interactivo (cursor de mano)
+        if (userDisplay) {
+            userDisplay.style.cursor = 'pointer';
+            userDisplay.title = 'Haz clic para cambiar de usuario';
+        }
+        
         traerDatosDelServidor();
+    }
+
+    // ========================================================
+    // 🔄 INTERRUPTOR DINÁMICO DE ENTORNO DE USUARIO
+    // ========================================================
+    if (userDisplay) {
+        userDisplay.addEventListener('click', () => {
+            const nuevoUsuario = prompt("Digita el nombre del usuario cuyas tareas deseas inspeccionar:", usuarioActivo);
+            if (nuevoUsuario && nuevoUsuario.trim() !== "") {
+                const usuarioLimpio = nuevoUsuario.trim().toLowerCase();
+                usuarioActivo = usuarioLimpio;
+                localStorage.setItem('taskmaster_user', usuarioLimpio); // Sostiene el cambio al recargar
+                
+                // Limpiamos listas actuales para que se note el cambio inmediato de pantalla
+                listPending.innerHTML = '<div class="empty-message">Cargando tareas...</div>';
+                listCompleted.innerHTML = '<div class="empty-message">Cargando tareas...</div>';
+                
+                traerDatosDelServidor(); // Ejecuta la consulta inmediata al servidor
+            }
+        });
     }
 
     // NAVEGACIÓN ENTRE VISTAS
@@ -578,6 +605,7 @@
         viewTareas.classList.remove('hidden');
         viewUsuarios.classList.add('hidden');
         topbarTitle.textContent = "Tareas pendientes por hacer";
+        traerDatosDelServidor(); // Sincroniza al volver a la pestaña de tareas
     });
 
     btnMenuUsuarios.addEventListener('click', () => {
@@ -591,6 +619,7 @@
 
     // LEER TAREAS (Sincronización Automática Web <-> App)
     async function traerDatosDelServidor() {
+        // Corrección: Solo frena si la vista de usuarios está activa. Si está en tareas, procesa.
         if (!usuarioActivo || !viewUsuarios.classList.contains('hidden')) return;
         try {
             const respuesta = await fetch(`${API_URL}/api/tareas?usuario=${usuarioActivo}`);
@@ -598,6 +627,7 @@
             
             const datos = await respuesta.json();
 
+            // Muestra en la barra superior el usuario real del que provienen las tareas
             userDisplay.textContent = `Usuario: ${datos.usuarioActivo}`;
             listaTareasPendientes = datos.pendientes;
             listaTareasCompletadas = datos.completadas;
