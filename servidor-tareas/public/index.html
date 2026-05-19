@@ -175,6 +175,7 @@
 
         /* --- CONTENEDOR PRINCIPAL --- */
         .main-content {
+            box-shrink: 0;
             flex: 1;
             display: flex;
             flex-direction: column;
@@ -527,7 +528,7 @@
     const btnReporte = document.getElementById('btn-reporte');
     const tableUsersBody = document.getElementById('table-users-body');
 
-    // VALIDACIÓN DE SESIÓN CON EL BACKEND CONTRA LA BASE DE DATOS REAL
+    // VALIDACIÓN DE SESIÓN CON EL BACKEND
     window.addEventListener('DOMContentLoaded', () => {
         const localUser = localStorage.getItem('taskmaster_user');
         if (localUser) {
@@ -541,7 +542,6 @@
         const contrasena = document.getElementById('login-password').value.trim();
 
         try {
-            // CORREGIDO: Se agregó el prefijo /api manual a la ruta
             const res = await fetch(`${API_URL}/api/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -593,7 +593,6 @@
     async function traerDatosDelServidor() {
         if (!usuarioActivo || !viewUsuarios.classList.contains('hidden')) return;
         try {
-            // CORREGIDO: Se mantiene el endpoint correcto /api/tareas
             const respuesta = await fetch(`${API_URL}/api/tareas?usuario=${usuarioActivo}`);
             if (!respuesta.ok) return;
             
@@ -612,7 +611,6 @@
     // CRUD DE USUARIOS: LEER (Obtener desde el servidor)
     async function cargarUsuariosDelServidor() {
         try {
-            // CORREGIDO: Se agregó /api/usuarios
             const res = await fetch(`${API_URL}/api/usuarios`);
             const usuarios = await res.json();
             
@@ -626,11 +624,11 @@
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td><strong>${u.username}</strong></td>
-                    <td style="font-family: monospace; font-weight: bold;">${u.contrasena}</td>
-                    <td><span class="task-count">${u.totalPendientes} asignadas</span></td>
+                    <td style="font-family: monospace; font-weight: bold;">${u.contrasena || u.password || '***'}</td>
+                    <td><span class="task-count">${u.totalPendientes || 0} asignadas</span></td>
                     <td><span style="color:#22c55e; font-weight:600;">● Conectado con App</span></td>
                     <td>
-                        <button class="btn-action btn-delete" onclick="eliminarUsuarioWeb('${u.username}')">Eliminar</button>
+                        <button class="btn-action btn-delete" onclick="window.eliminarUsuarioWeb('${u.username}')">Eliminar</button>
                     </td>
                 `;
                 tableUsersBody.appendChild(tr);
@@ -640,14 +638,13 @@
         }
     }
 
-    // CRUD DE USUARIOS: CREAR
-    async function crearUsuarioWeb() {
+    // CRUD DE USUARIOS: CREAR (Amarrado globalmente a window)
+    window.crearUsuarioWeb = async function() {
         const username = document.getElementById('crud-username').value.trim();
         const contrasena = document.getElementById('crud-password').value.trim();
         if(!username || !contrasena) return alert("Completa los campos del usuario.");
 
         try {
-            // CORREGIDO: Se estructuró hacia /api/usuarios/crear
             const res = await fetch(`${API_URL}/api/usuarios/crear`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -655,7 +652,7 @@
             });
             const data = await res.json();
             if(res.ok) {
-                alert(data.mensaje);
+                alert(data.mensaje || "Usuario creado");
                 cargarUsuariosDelServidor();
                 document.getElementById('crud-username').value = '';
                 document.getElementById('crud-password').value = '';
@@ -665,14 +662,13 @@
         } catch(err) { alert("Error de red."); }
     }
 
-    // CRUD DE USUARIOS: ACTUALIZAR CONTRASEÑA
-    async function actualizarUsuarioWeb() {
+    // CRUD DE USUARIOS: ACTUALIZAR CONTRASEÑA (Amarrado globalmente a window)
+    window.actualizarUsuarioWeb = async function() {
         const username = document.getElementById('crud-username').value.trim();
         const nuevaContrasena = document.getElementById('crud-password').value.trim();
         if(!username || !nuevaContrasena) return alert("Digita el usuario y su nueva clave.");
 
         try {
-            // CORREGIDO: Se estructuró hacia /api/usuarios/actualizar
             const res = await fetch(`${API_URL}/api/usuarios/actualizar`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
@@ -680,7 +676,7 @@
             });
             const data = await res.json();
             if(res.ok) {
-                alert(data.mensaje);
+                alert(data.mensaje || "Contraseña cambiada");
                 cargarUsuariosDelServidor();
                 document.getElementById('crud-username').value = '';
                 document.getElementById('crud-password').value = '';
@@ -690,12 +686,11 @@
         } catch(err) { alert("Error de red."); }
     }
 
-    // CRUD DE USUARIOS: ELIMINAR
-    async function eliminarUsuarioWeb(username) {
-        if(!confirm(`¿Seguro que deseas eliminar al usuario "${username}"? Se desconectará de la App móvil.`)) return;
+    // CRUD DE USUARIOS: ELIMINAR (Amarrado globalmente a window)
+    window.eliminarUsuarioWeb = async function(username) {
+        if(!confirm(`¿Seguro que deseas eliminar al usuario "${username}"?`)) return;
 
         try {
-            // CORREGIDO: Se estructuró hacia /api/usuarios/eliminar
             const res = await fetch(`${API_URL}/api/usuarios/eliminar`, {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
@@ -787,7 +782,7 @@
         }
     }
 
-    // Consulta en bucle automático cada 3 segundos los cambios del servidor de forma asíncrona
+    // Consulta en bucle automático cada 3 segundos
     setInterval(traerDatosDelServidor, 3000);
 </script>
 </body>
