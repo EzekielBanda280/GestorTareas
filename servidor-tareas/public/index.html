@@ -506,283 +506,289 @@
         </div>
     </div>
 
-    <script>
-        const API_URL = `${window.location.origin}/api`;
-        let usuarioActivo = "";
-        
-        let listaTareasPendientes = [];
-        let listaTareasCompletadas = [];
-        
-        const btnMenuTareas = document.getElementById('menu-tareas');
-        const btnMenuUsuarios = document.getElementById('menu-usuarios');
-        const viewTareas = document.getElementById('view-tareas');
-        const viewUsuarios = document.getElementById('view-usuarios');
-        const topbarTitle = document.getElementById('topbar-title');
+<script>
+    const API_URL = window.location.origin;
+    let usuarioActivo = "";
+    
+    let listaTareasPendientes = [];
+    let listaTareasCompletadas = [];
+    
+    const btnMenuTareas = document.getElementById('menu-tareas');
+    const btnMenuUsuarios = document.getElementById('menu-usuarios');
+    const viewTareas = document.getElementById('view-tareas');
+    const viewUsuarios = document.getElementById('view-usuarios');
+    const topbarTitle = document.getElementById('topbar-title');
 
-        const listPending = document.getElementById('list-pending');
-        const listCompleted = document.getElementById('list-completed');
-        const countPending = document.getElementById('count-pending');
-        const countCompleted = document.getElementById('count-completed');
-        const userDisplay = document.getElementById('user-display');
-        const btnReporte = document.getElementById('btn-reporte');
-        const tableUsersBody = document.getElementById('table-users-body');
+    const listPending = document.getElementById('list-pending');
+    const listCompleted = document.getElementById('list-completed');
+    const countPending = document.getElementById('count-pending');
+    const countCompleted = document.getElementById('count-completed');
+    const userDisplay = document.getElementById('user-display');
+    const btnReporte = document.getElementById('btn-reporte');
+    const tableUsersBody = document.getElementById('table-users-body');
 
-        // VALIDACIÓN DE SESIÓN CON EL BACKEND CONTRA LA BASE DE DATOS REAL
-        window.addEventListener('DOMContentLoaded', () => {
-            const localUser = localStorage.getItem('taskmaster_user');
-            if (localUser) {
-                iniciarPanel(localUser);
+    // VALIDACIÓN DE SESIÓN CON EL BACKEND CONTRA LA BASE DE DATOS REAL
+    window.addEventListener('DOMContentLoaded', () => {
+        const localUser = localStorage.getItem('taskmaster_user');
+        if (localUser) {
+            iniciarPanel(localUser);
+        }
+    });
+
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const usuario = document.getElementById('login-username').value.trim();
+        const contrasena = document.getElementById('login-password').value.trim();
+
+        try {
+            // CORREGIDO: Se agregó el prefijo /api manual a la ruta
+            const res = await fetch(`${API_URL}/api/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ usuario, contrasena })
+            });
+
+            const data = await res.json();
+            if (res.ok) {
+                localStorage.setItem('taskmaster_user', data.usuario);
+                iniciarPanel(data.usuario);
+            } else {
+                alert(data.error || "Error de autenticación");
             }
-        });
-
-        document.getElementById('login-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const usuario = document.getElementById('login-username').value.trim();
-            const contrasena = document.getElementById('login-password').value.trim();
-
-            try {
-                const res = await fetch(`${API_URL}/api/login`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ usuario, contrasena })
-                });
-
-                const data = await res.json();
-                if (res.ok) {
-                    localStorage.setItem('taskmaster_user', data.usuario);
-                    iniciarPanel(data.usuario);
-                } else {
-                    alert(data.error || "Error de autenticación");
-                }
-            } catch (err) {
-                alert("Error al conectar con el servidor.");
-            }
-        });
-
-        document.getElementById('btn-logout-action').addEventListener('click', () => {
-            localStorage.removeItem('taskmaster_user');
-            window.location.reload();
-        });
-
-        function iniciarPanel(user) {
-            usuarioActivo = user;
-            document.getElementById('login-screen').classList.add('hidden');
-            traerDatosDelServidor();
+        } catch (err) {
+            alert("Error al conectar con el servidor.");
         }
+    });
 
-        // NAVEGACIÓN ENTRE VISTAS
-        btnMenuTareas.addEventListener('click', () => {
-            btnMenuTareas.classList.add('active');
-            btnMenuUsuarios.classList.remove('active');
-            viewTareas.classList.remove('hidden');
-            viewUsuarios.classList.add('hidden');
-            topbarTitle.textContent = "Tareas pendientes por hacer";
-        });
+    document.getElementById('btn-logout-action').addEventListener('click', () => {
+        localStorage.removeItem('taskmaster_user');
+        window.location.reload();
+    });
 
-        btnMenuUsuarios.addEventListener('click', () => {
-            btnMenuUsuarios.classList.add('active');
-            btnMenuTareas.classList.remove('active');
-            viewUsuarios.classList.remove('hidden');
-            viewTareas.classList.add('hidden');
-            topbarTitle.textContent = "Usuarios registrados en el sistema";
-            cargarUsuariosDelServidor(); 
-        });
+    function iniciarPanel(user) {
+        usuarioActivo = user;
+        document.getElementById('login-screen').classList.add('hidden');
+        traerDatosDelServidor();
+    }
 
-        // LEER TAREAS (Sincronización Automática Web <-> App)
-        async function traerDatosDelServidor() {
-            if (!usuarioActivo || !viewUsuarios.classList.contains('hidden')) return;
-            try {
-                const respuesta = await fetch(`${API_URL}/api/tareas?usuario=${usuarioActivo}`);
-                if (!respuesta.ok) return;
-                
-                const datos = await respuesta.json();
+    // NAVEGACIÓN ENTRE VISTAS
+    btnMenuTareas.addEventListener('click', () => {
+        btnMenuTareas.classList.add('active');
+        btnMenuUsuarios.classList.remove('active');
+        viewTareas.classList.remove('hidden');
+        viewUsuarios.classList.add('hidden');
+        topbarTitle.textContent = "Tareas pendientes por hacer";
+    });
 
-                userDisplay.textContent = `Usuario: ${datos.usuarioActivo}`;
-                listaTareasPendientes = datos.pendientes;
-                listaTareasCompletadas = datos.completadas;
+    btnMenuUsuarios.addEventListener('click', () => {
+        btnMenuUsuarios.classList.add('active');
+        btnMenuTareas.classList.remove('active');
+        viewUsuarios.classList.remove('hidden');
+        viewTareas.classList.add('hidden');
+        topbarTitle.textContent = "Usuarios registrados en el sistema";
+        cargarUsuariosDelServidor(); 
+    });
 
-                renderizerTareas();
-            } catch (error) {
-                console.error("Error al conectar con el backend de Render:", error);
-            }
+    // LEER TAREAS (Sincronización Automática Web <-> App)
+    async function traerDatosDelServidor() {
+        if (!usuarioActivo || !viewUsuarios.classList.contains('hidden')) return;
+        try {
+            // CORREGIDO: Se mantiene el endpoint correcto /api/tareas
+            const respuesta = await fetch(`${API_URL}/api/tareas?usuario=${usuarioActivo}`);
+            if (!respuesta.ok) return;
+            
+            const datos = await respuesta.json();
+
+            userDisplay.textContent = `Usuario: ${datos.usuarioActivo}`;
+            listaTareasPendientes = datos.pendientes;
+            listaTareasCompletadas = datos.completadas;
+
+            renderizerTareas();
+        } catch (error) {
+            console.error("Error al conectar con el backend de Render:", error);
         }
+    }
 
-        // CRUD DE USUARIOS: LEER (Obtener desde el servidor)
-        async function cargarUsuariosDelServidor() {
-            try {
-                const res = await fetch(`${API_URL}/api/usuarios`);
-                const usuarios = await res.json();
-                
-                tableUsersBody.innerHTML = '';
-                if (usuarios.length === 0) {
-                    tableUsersBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#94a3b8; font-style:italic;">No hay usuarios registrados</td></tr>`;
-                    return;
-                }
-
-                usuarios.forEach(u => {
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td><strong>${u.username}</strong></td>
-                        <td style="font-family: monospace; font-weight: bold;">${u.contrasena}</td>
-                        <td><span class="task-count">${u.totalPendientes} asignadas</span></td>
-                        <td><span style="color:#22c55e; font-weight:600;">● Conectado con App</span></td>
-                        <td>
-                            <button class="btn-action btn-delete" onclick="eliminarUsuarioWeb('${u.username}')">Eliminar</button>
-                        </td>
-                    `;
-                    tableUsersBody.appendChild(tr);
-                });
-            } catch (err) {
-                console.error("Error cargando usuarios administrativos:", err);
-            }
-        }
-
-        // CRUD DE USUARIOS: CREAR
-        async function crearUsuarioWeb() {
-            const username = document.getElementById('crud-username').value.trim();
-            const contrasena = document.getElementById('crud-password').value.trim();
-            if(!username || !contrasena) return alert("Completa los campos del usuario.");
-
-            try {
-                const res = await fetch(`${API_URL}/api/usuarios/crear`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, contrasena })
-                });
-                const data = await res.json();
-                if(res.ok) {
-                    alert(data.mensaje);
-                    cargarUsuariosDelServidor();
-                    document.getElementById('crud-username').value = '';
-                    document.getElementById('crud-password').value = '';
-                } else {
-                    alert(data.error);
-                }
-            } catch(err) { alert("Error de red."); }
-        }
-
-        // CRUD DE USUARIOS: ACTUALIZAR CONTRASEÑA
-        async function actualizarUsuarioWeb() {
-            const username = document.getElementById('crud-username').value.trim();
-            const nuevaContrasena = document.getElementById('crud-password').value.trim();
-            if(!username || !nuevaContrasena) return alert("Digita el usuario y su nueva clave.");
-
-            try {
-                const res = await fetch(`${API_URL}/api/usuarios/actualizar`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, nuevaContrasena })
-                });
-                const data = await res.json();
-                if(res.ok) {
-                    alert(data.mensaje);
-                    cargarUsuariosDelServidor();
-                    document.getElementById('crud-username').value = '';
-                    document.getElementById('crud-password').value = '';
-                } else {
-                    alert(data.error);
-                }
-            } catch(err) { alert("Error de red."); }
-        }
-
-        // CRUD DE USUARIOS: ELIMINAR
-        async function eliminarUsuarioWeb(username) {
-            if(!confirm(`¿Seguro que deseas eliminar al usuario "${username}"? Se desconectará de la App móvil.`)) return;
-
-            try {
-                const res = await fetch(`${API_URL}/api/usuarios/eliminar`, {
-                    method: 'DELETE',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username })
-                });
-                if(res.ok) {
-                    alert("Usuario dado de baja exitosamente.");
-                    cargarUsuariosDelServidor();
-                }
-            } catch(err) { alert("Error de red."); }
-        }
-
-        // REPORTE DE PRODUCTIVIDAD
-        btnReporte.addEventListener('click', () => {
-            const totalTareas = listaTareasPendientes.length + listaTareasCompletadas.length;
-            if (totalTareas === 0) {
-                alert("No hay tareas registradas para este usuario.");
+    // CRUD DE USUARIOS: LEER (Obtener desde el servidor)
+    async function cargarUsuariosDelServidor() {
+        try {
+            // CORREGIDO: Se agregó /api/usuarios
+            const res = await fetch(`${API_URL}/api/usuarios`);
+            const usuarios = await res.json();
+            
+            tableUsersBody.innerHTML = '';
+            if (usuarios.length === 0) {
+                tableUsersBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#94a3b8; font-style:italic;">No hay usuarios registrados</td></tr>`;
                 return;
             }
 
-            const porcentajeCumplimiento = ((listaTareasCompletadas.length / totalTareas) * 100).toFixed(1);
-            const fechaActual = new Date().toLocaleDateString('es-ES');
-            const horaActual = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+            usuarios.forEach(u => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><strong>${u.username}</strong></td>
+                    <td style="font-family: monospace; font-weight: bold;">${u.contrasena}</td>
+                    <td><span class="task-count">${u.totalPendientes} asignadas</span></td>
+                    <td><span style="color:#22c55e; font-weight:600;">● Conectado con App</span></td>
+                    <td>
+                        <button class="btn-action btn-delete" onclick="eliminarUsuarioWeb('${u.username}')">Eliminar</button>
+                    </td>
+                `;
+                tableUsersBody.appendChild(tr);
+            });
+        } catch (err) {
+            console.error("Error cargando usuarios administrativos:", err);
+        }
+    }
 
-            let contenido = `==================================================\n`;
-            contenido += `         REPORTE DE PRODUCTIVIDAD - TASKMASTER PRO\n`;
-            contenido += `==================================================\n\n`;
-            contenido += `Usuario: ${usuarioActivo}\n`;
-            contenido += `Fecha de generación: ${fechaActual} a las ${horaActual} horas\n`;
-            contenido += `--------------------------------------------------\n`;
-            contenido += `MÉTRICAS GENERALES:\n`;
-            contenido += `- Total de tareas asignadas: ${totalTareas}\n`;
-            contenido += `- Tareas completadas: ${listaTareasCompletadas.length}\n`;
-            contenido += `- Tareas pendientes: ${listaTareasPendientes.length}\n`;
-            contenido += `- Porcentaje de eficiencia: ${porcentajeCumplimiento}%\n`;
-            contenido += `--------------------------------------------------\n\n`;
-            
-            contenido += `LISTADO DETALLADO DE TAREAS:\n\n`;
-            contenido += `[TAREAS PENDIENTES]\n`;
-            if (listaTareasPendientes.length === 0) {
-                contenido += ` - No hay tareas pendientes asignadas.\n`;
+    // CRUD DE USUARIOS: CREAR
+    async function crearUsuarioWeb() {
+        const username = document.getElementById('crud-username').value.trim();
+        const contrasena = document.getElementById('crud-password').value.trim();
+        if(!username || !contrasena) return alert("Completa los campos del usuario.");
+
+        try {
+            // CORREGIDO: Se estructuró hacia /api/usuarios/crear
+            const res = await fetch(`${API_URL}/api/usuarios/crear`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, contrasena })
+            });
+            const data = await res.json();
+            if(res.ok) {
+                alert(data.mensaje);
+                cargarUsuariosDelServidor();
+                document.getElementById('crud-username').value = '';
+                document.getElementById('crud-password').value = '';
             } else {
-                listaTareasPendientes.forEach((t, i) => { contenido += ` ${i + 1}. [PENDIENTE] ${t}\n`; });
+                alert(data.error);
             }
-            
-            contenido += `\n[TAREAS COMPLETADAS]\n`;
-            if (listaTareasCompletadas.length === 0) {
-                contenido += ` - No hay tareas completadas todavía.\n`;
+        } catch(err) { alert("Error de red."); }
+    }
+
+    // CRUD DE USUARIOS: ACTUALIZAR CONTRASEÑA
+    async function actualizarUsuarioWeb() {
+        const username = document.getElementById('crud-username').value.trim();
+        const nuevaContrasena = document.getElementById('crud-password').value.trim();
+        if(!username || !nuevaContrasena) return alert("Digita el usuario y su nueva clave.");
+
+        try {
+            // CORREGIDO: Se estructuró hacia /api/usuarios/actualizar
+            const res = await fetch(`${API_URL}/api/usuarios/actualizar`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, nuevaContrasena })
+            });
+            const data = await res.json();
+            if(res.ok) {
+                alert(data.mensaje);
+                cargarUsuariosDelServidor();
+                document.getElementById('crud-username').value = '';
+                document.getElementById('crud-password').value = '';
             } else {
-                listaTareasCompletadas.forEach((t, i) => { contenido += ` ${i + 1}. [HECHO] ${t}\n`; });
+                alert(data.error);
             }
+        } catch(err) { alert("Error de red."); }
+    }
 
-            const blob = new Blob([contenido], { type: 'text/plain;charset=utf-8;' });
-            const link = document.createElement("a");
-            link.href = URL.createObjectURL(blob);
-            link.setAttribute("download", `Reporte_${usuarioActivo}_${fechaActual.replace(/\//g, '-')}.txt`);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        });
+    // CRUD DE USUARIOS: ELIMINAR
+    async function eliminarUsuarioWeb(username) {
+        if(!confirm(`¿Seguro que deseas eliminar al usuario "${username}"? Se desconectará de la App móvil.`)) return;
 
-        // RENDERIZAR VISTA EN PANTALLA
-        function renderizerTareas() {
-            countPending.textContent = `${listaTareasPendientes.length} pendientes`;
-            countCompleted.textContent = `${listaTareasCompletadas.length} terminadas`;
-
-            if (listaTareasPendientes.length === 0) {
-                listPending.innerHTML = '<div class="empty-message">No hay tareas pendientes asignadas</div>';
-            } else {
-                listPending.innerHTML = '';
-                listaTareasPendientes.forEach(tarea => {
-                    const card = document.createElement('div');
-                    card.className = 'task-card-pending';
-                    card.innerHTML = `<h3>${tarea}</h3>`;
-                    listPending.appendChild(card);
-                });
+        try {
+            // CORREGIDO: Se estructuró hacia /api/usuarios/eliminar
+            const res = await fetch(`${API_URL}/api/usuarios/eliminar`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username })
+            });
+            if(res.ok) {
+                alert("Usuario dado de baja exitosamente.");
+                cargarUsuariosDelServidor();
             }
+        } catch(err) { alert("Error de red."); }
+    }
 
-            if (listaTareasCompletadas.length === 0) {
-                listCompleted.innerHTML = '<div class="empty-message">No hay tareas completadas todavía</div>';
-            } else {
-                listCompleted.innerHTML = '';
-                listaTareasCompletadas.forEach(tarea => {
-                    const card = document.createElement('div');
-                    card.className = 'task-card-completed';
-                    card.innerHTML = `<h3>${tarea}</h3><div class="task-date">Completada con éxito</div>`;
-                    listCompleted.appendChild(card);
-                });
-            }
+    // REPORTE DE PRODUCTIVIDAD
+    btnReporte.addEventListener('click', () => {
+        const totalTareas = listaTareasPendientes.length + listaTareasCompletadas.length;
+        if (totalTareas === 0) {
+            alert("No hay tareas registradas para este usuario.");
+            return;
         }
 
-        // Consulta en bucle automático cada 3 segundos los cambios del servidor de forma asíncrona
-        setInterval(traerDatosDelServidor, 3000);
-    </script>
+        const porcentajeCumplimiento = ((listaTareasCompletadas.length / totalTareas) * 100).toFixed(1);
+        const fechaActual = new Date().toLocaleDateString('es-ES');
+        const horaActual = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+
+        let contenido = `==================================================\n`;
+        contenido += `         REPORTE DE PRODUCTIVIDAD - TASKMASTER PRO\n`;
+        contenido += `==================================================\n\n`;
+        contenido += `Usuario: ${usuarioActivo}\n`;
+        contenido += `Fecha de generación: ${fechaActual} a las ${horaActual} horas\n`;
+        contenido += `--------------------------------------------------\n`;
+        contenido += `MÉTRICAS GENERALES:\n`;
+        contenido += `- Total de tareas asignadas: ${totalTareas}\n`;
+        contenido += `- Tareas completadas: ${listaTareasCompletadas.length}\n`;
+        contenido += `- Tareas pendientes: ${listaTareasPendientes.length}\n`;
+        contenido += `- Porcentaje de eficiencia: ${porcentajeCumplimiento}%\n`;
+        contenido += `--------------------------------------------------\n\n`;
+        
+        contenido += `LISTADO DETALLADO DE TAREAS:\n\n`;
+        contenido += `[TAREAS PENDIENTES]\n`;
+        if (listaTareasPendientes.length === 0) {
+            contenido += ` - No hay tareas pendientes asignadas.\n`;
+        } else {
+            listaTareasPendientes.forEach((t, i) => { contenido += ` ${i + 1}. [PENDIENTE] ${t}\n`; });
+        }
+        
+        contenido += `\n[TAREAS COMPLETADAS]\n`;
+        if (listaTareasCompletadas.length === 0) {
+            contenido += ` - No hay tareas completadas todavía.\n`;
+        } else {
+            listaTareasCompletadas.forEach((t, i) => { contenido += ` ${i + 1}. [HECHO] ${t}\n`; });
+        }
+
+        const blob = new Blob([contenido], { type: 'text/plain;charset=utf-8;' });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.setAttribute("download", `Reporte_${usuarioActivo}_${fechaActual.replace(/\//g, '-')}.txt`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    });
+
+    // RENDERIZAR VISTA EN PANTALLA
+    function renderizerTareas() {
+        countPending.textContent = `${listaTareasPendientes.length} pendientes`;
+        countCompleted.textContent = `${listaTareasCompletadas.length} terminadas`;
+
+        if (listaTareasPendientes.length === 0) {
+            listPending.innerHTML = '<div class="empty-message">No hay tareas pendientes asignadas</div>';
+        } else {
+            listPending.innerHTML = '';
+            listaTareasPendientes.forEach(tarea => {
+                const card = document.createElement('div');
+                card.className = 'task-card-pending';
+                card.innerHTML = `<h3>${tarea}</h3>`;
+                listPending.appendChild(card);
+            });
+        }
+
+        if (listaTareasCompletadas.length === 0) {
+            listCompleted.innerHTML = '<div class="empty-message">No hay tareas completadas todavía</div>';
+        } else {
+            listCompleted.innerHTML = '';
+            listaTareasCompletadas.forEach(tarea => {
+                const card = document.createElement('div');
+                card.className = 'task-card-completed';
+                card.innerHTML = `<h3>${tarea}</h3><div class="task-date">Completada con éxito</div>`;
+                listCompleted.appendChild(card);
+            });
+        }
+    }
+
+    // Consulta en bucle automático cada 3 segundos los cambios del servidor de forma asíncrona
+    setInterval(traerDatosDelServidor, 3000);
+</script>
 </body>
 </html>
