@@ -1,20 +1,26 @@
 const express = require('express');
 const cors = require('cors');
-const path = require('path');
+const path = require('path'); 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
 
+// 1. Servir archivos estáticos desde la carpeta 'public'
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Objeto dinámico para guardar los datos en memoria
 let usuariosSincronizados = {};
 
+// 2. RUTA RAÍZ: Apunta directamente al archivo index.html dentro de public
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    res.sendFile(path.resolve(__dirname, 'public', 'index.html'));
 });
 
+// ========================================================
+// 📋 1. ENDPOINT PARA EL GESTOR WEB (Obtener tareas)
+// ========================================================
 app.get('/api/tareas', (req, res) => {
     const usuarioSolicitante = req.query.usuario || "Ninguno";
     const userKey = usuarioSolicitante.toLowerCase().trim();
@@ -34,6 +40,9 @@ app.get('/api/tareas', (req, res) => {
     }
 });
 
+// ========================================================
+// 🔄 2. ENDPOINT PARA LA APP MÓVIL (Sincronización masiva)
+// ========================================================
 app.post('/api/sincronizar', (req, res) => {
     const { usuarioActivo, pendientes, completadas } = req.body;
     
@@ -57,6 +66,9 @@ app.post('/api/sincronizar', (req, res) => {
     });
 });
 
+// ========================================================
+// ➕🛠️ ENDPOINTS CRUD ADICIONALES PARA EL GESTOR WEB
+// ========================================================
 
 app.post('/api/tareas/crear', (req, res) => {
     const { texto, tipo, usuario } = req.body;
@@ -97,42 +109,4 @@ app.delete('/api/tareas/eliminar', (req, res) => {
 
 app.listen(PORT, () => {
     console.log(`Servidor de Render corriendo en el puerto ${PORT}`);
-});const express = require('express');
-const cors = require('cors');
-const app = express();
-const PORT = 3000;
-
-app.use(cors());
-app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
-
-let datosSincronizados = {
-    usuarioActivo: "Ninguno",
-    pendientes: [],
-    completadas: []
-};
-
-
-app.get('/api/tareas', (req, res) => {
-    res.json(datosSincronizados);
-});
-
-app.post('/api/sincronizar', (req, res) => {
-    const { usuarioActivo, pendientes, completadas } = req.body;
-    
-
-    datosSincronizados.usuarioActivo = usuarioActivo || "Ninguno";
-    datosSincronizados.pendientes = pendientes || [];
-    datosSincronizados.completadas = completadas || [];
-    
-    console.log(`[Sincro] ¡Datos actualizados por el usuario móvil: ${datosSincronizados.usuarioActivo}!`);
-    
-    res.status(200).json({ 
-        mensaje: "Sincronización local exitosa",
-        status: "OK" 
-    });
-});
-
-app.listen(PORT, () => {
-    console.log(`URL de la API: https://gestor-de-tareas-9bl6.onrender.com`);
 });
