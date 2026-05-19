@@ -97,6 +97,7 @@
             color: white;
             font-size: 1rem;
             outline: none;
+            margin-bottom: 10px;
         }
 
         .login-input:focus {
@@ -341,6 +342,49 @@
             box-shadow: var(--shadow);
         }
 
+        /* --- FORMULARIO CRUD ADMINISTRATIVO --- */
+        .admin-form {
+            background: #f8fafc;
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            margin-bottom: 24px;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .admin-input {
+            padding: 10px 14px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            outline: none;
+            min-width: 180px;
+        }
+
+        .admin-input:focus {
+            border-color: var(--primary);
+        }
+
+        .btn-action {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 0.9rem;
+            color: white;
+        }
+
+        .btn-create { background-color: #22c55e; }
+        .btn-create:hover { background-color: #16a34a; }
+        .btn-update { background-color: #eab308; }
+        .btn-update:hover { background-color: #ca8a04; }
+        .btn-delete { background-color: #ef4444; padding: 6px 12px; font-size: 0.8rem; }
+        .btn-delete:hover { background-color: #dc2626; }
+
         .users-table {
             width: 100%;
             border-collapse: collapse;
@@ -380,8 +424,10 @@
             <p>Módulo de Sincronización Web</p>
             <form id="login-form">
                 <div class="login-field">
-                    <label>Ingresa tu Usuario de la App</label>
-                    <input type="text" class="login-input" id="login-username" required placeholder="Ej: limon, banda, admin">
+                    <label>Usuario</label>
+                    <input type="text" class="login-input" id="login-username" required placeholder="Ej: banda, limon">
+                    <label>Contraseña</label>
+                    <input type="password" class="login-input" id="login-password" required placeholder="••••">
                 </div>
                 <button type="submit" class="login-btn">Acceder al Panel</button>
             </form>
@@ -433,15 +479,24 @@
 
             <div class="users-panel hidden" id="view-usuarios">
                 <div class="column-title">
-                    <span>Historial de Usuarios en la App</span>
+                    <span>Panel de Control - CRUD de Usuarios</span>
                 </div>
+
+                <div class="admin-form">
+                    <input type="text" id="crud-username" class="admin-input" placeholder="Nombre del usuario">
+                    <input type="text" id="crud-password" class="admin-input" placeholder="Contraseña">
+                    <button class="btn-action btn-create" onclick="crearUsuarioWeb()">+ Crear Usuario</button>
+                    <button class="btn-action btn-update" onclick="actualizarUsuarioWeb()">🔄 Cambiar Clave</button>
+                </div>
+
                 <table class="users-table">
                     <thead>
                         <tr>
                             <th>Nombre de Usuario</th>
+                            <th>Contraseña Activa</th>
                             <th>Tareas Pendientes</th>
-                            <th>Tareas Completadas</th>
                             <th>Estado de Sincronización</th>
+                            <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody id="table-users-body"></tbody>
@@ -452,7 +507,6 @@
     </div>
 
     <script>
-        // Captura automáticamente el dominio donde está corriendo (Render o Local)
         const API_URL = window.location.origin;
         let usuarioActivo = "";
         
@@ -473,32 +527,41 @@
         const btnReporte = document.getElementById('btn-reporte');
         const tableUsersBody = document.getElementById('table-users-body');
 
-        // GESTIÓN DE SESIÓN
+        // VALIDACIÓN DE SESIÓN CON EL BACKEND CONTRA LA BASE DE DATOS REAL
         window.addEventListener('DOMContentLoaded', () => {
-            const urlParams = new URLSearchParams(window.location.search);
-            const userParam = urlParams.get('usuario');
             const localUser = localStorage.getItem('taskmaster_user');
-
-            if (userParam) {
-                iniciarPanel(userParam);
-            } else if (localUser) {
+            if (localUser) {
                 iniciarPanel(localUser);
             }
         });
 
-        document.getElementById('login-form').addEventListener('submit', (e) => {
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const username = document.getElementById('login-username').value.trim();
-            if (username) {
-                localStorage.setItem('taskmaster_user', username);
-                window.history.pushState({}, '', `?usuario=${username}`);
-                iniciarPanel(username);
+            const usuario = document.getElementById('login-username').value.trim();
+            const contrasena = document.getElementById('login-password').value.trim();
+
+            try {
+                const res = await fetch(`${API_URL}/api/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ usuario, contrasena })
+                });
+
+                const data = await res.json();
+                if (res.ok) {
+                    localStorage.setItem('taskmaster_user', data.usuario);
+                    iniciarPanel(data.usuario);
+                } else {
+                    alert(data.error || "Error de autenticación");
+                }
+            } catch (err) {
+                alert("Error al conectar con el servidor.");
             }
         });
 
         document.getElementById('btn-logout-action').addEventListener('click', () => {
             localStorage.removeItem('taskmaster_user');
-            window.location.href = window.location.pathname; // Recarga limpio sin queries
+            window.location.reload();
         });
 
         function iniciarPanel(user) {
@@ -507,7 +570,7 @@
             traerDatosDelServidor();
         }
 
-        // NAVEGACIÓN
+        // NAVEGACIÓN ENTRE VISTAS
         btnMenuTareas.addEventListener('click', () => {
             btnMenuTareas.classList.add('active');
             btnMenuUsuarios.classList.remove('active');
@@ -522,69 +585,128 @@
             viewUsuarios.classList.remove('hidden');
             viewTareas.classList.add('hidden');
             topbarTitle.textContent = "Usuarios registrados en el sistema";
-            actualizarTablaUsuarios(); 
+            cargarUsuariosDelServidor(); 
         });
 
-        // PETICIÓN DINÁMICA REMOTA
+        // LEER TAREAS (Sincronización Automática Web <-> App)
         async function traerDatosDelServidor() {
-            if (!usuarioActivo) return;
+            if (!usuarioActivo || !viewUsuarios.classList.contains('hidden')) return;
             try {
-                // Consulta el endpoint pasándole el query param exacto del usuario activo
                 const respuesta = await fetch(`${API_URL}/api/tareas?usuario=${usuarioActivo}`);
+                if (!respuesta.ok) return;
+                
                 const datos = await respuesta.json();
 
                 userDisplay.textContent = `Usuario: ${datos.usuarioActivo}`;
                 listaTareasPendientes = datos.pendientes;
                 listaTareasCompletadas = datos.completadas;
 
-                renderizarTareas();
-                
-                // Guardar logs locales en la tabla de historial histórico
-                if (datos.usuarioActivo && datos.usuarioActivo !== "Ninguno") {
-                    let historial = JSON.parse(localStorage.getItem('historialUsuarios')) || {};
-                    historial[datos.usuarioActivo.toLowerCase()] = {
-                        nombreOriginal: datos.usuarioActivo,
-                        pendientesCount: datos.pendientes.length,
-                        completadasCount: datos.completadas.length,
-                        ultimaSincro: new Date().toLocaleTimeString()
-                    };
-                    localStorage.setItem('historialUsuarios', JSON.stringify(historial));
-                }
-
+                renderizerTareas();
             } catch (error) {
                 console.error("Error al conectar con el backend de Render:", error);
             }
         }
 
-        function actualizarTablaUsuarios() {
-            const historial = JSON.parse(localStorage.getItem('historialUsuarios')) || {};
-            tableUsersBody.innerHTML = '';
+        // CRUD DE USUARIOS: LEER (Obtener desde el servidor)
+        async function cargarUsuariosDelServidor() {
+            try {
+                const res = await fetch(`${API_URL}/api/usuarios`);
+                const usuarios = await res.json();
+                
+                tableUsersBody.innerHTML = '';
+                if (usuarios.length === 0) {
+                    tableUsersBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#94a3b8; font-style:italic;">No hay usuarios registrados</td></tr>`;
+                    return;
+                }
 
-            const usuarios = Object.keys(historial);
-
-            if (usuarios.length === 0) {
-                tableUsersBody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#94a3b8; font-style:italic;">No hay usuarios registrados sincronizados aún</td></tr>`;
-                return;
+                usuarios.forEach(u => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td><strong>${u.username}</strong></td>
+                        <td style="font-family: monospace; font-weight: bold;">${u.contrasena}</td>
+                        <td><span class="task-count">${u.totalPendientes} asignadas</span></td>
+                        <td><span style="color:#22c55e; font-weight:600;">● Conectado con App</span></td>
+                        <td>
+                            <button class="btn-action btn-delete" onclick="eliminarUsuarioWeb('${u.username}')">Eliminar</button>
+                        </td>
+                    `;
+                    tableUsersBody.appendChild(tr);
+                });
+            } catch (err) {
+                console.error("Error cargando usuarios administrativos:", err);
             }
-
-            usuarios.forEach(key => {
-                const userObj = historial[key];
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td><strong>${userObj.nombreOriginal}</strong></td>
-                    <td><span class="task-count">${userObj.pendientesCount} asignadas</span></td>
-                    <td><span class="task-count" style="background-color:#dcfce7; color:#166534;">${userObj.completadasCount} terminadas</span></td>
-                    <td><span style="color:#22c55e; font-weight:600;">● Sincronizado (${userObj.ultimaSincro})</span></td>
-                `;
-                tableUsersBody.appendChild(tr);
-            });
         }
 
-        // REPORTE DE TEXTO PLANO CORREGIDO (Lee strings nativos)
+        // CRUD DE USUARIOS: CREAR
+        async function crearUsuarioWeb() {
+            const username = document.getElementById('crud-username').value.trim();
+            const contrasena = document.getElementById('crud-password').value.trim();
+            if(!username || !contrasena) return alert("Completa los campos del usuario.");
+
+            try {
+                const res = await fetch(`${API_URL}/api/usuarios/crear`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, contrasena })
+                });
+                const data = await res.json();
+                if(res.ok) {
+                    alert(data.mensaje);
+                    cargarUsuariosDelServidor();
+                    document.getElementById('crud-username').value = '';
+                    document.getElementById('crud-password').value = '';
+                } else {
+                    alert(data.error);
+                }
+            } catch(err) { alert("Error de red."); }
+        }
+
+        // CRUD DE USUARIOS: ACTUALIZAR CONTRASEÑA
+        async function actualizarUsuarioWeb() {
+            const username = document.getElementById('crud-username').value.trim();
+            const nuevaContrasena = document.getElementById('crud-password').value.trim();
+            if(!username || !nuevaContrasena) return alert("Digita el usuario y su nueva clave.");
+
+            try {
+                const res = await fetch(`${API_URL}/api/usuarios/actualizar`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, nuevaContrasena })
+                });
+                const data = await res.json();
+                if(res.ok) {
+                    alert(data.mensaje);
+                    cargarUsuariosDelServidor();
+                    document.getElementById('crud-username').value = '';
+                    document.getElementById('crud-password').value = '';
+                } else {
+                    alert(data.error);
+                }
+            } catch(err) { alert("Error de red."); }
+        }
+
+        // CRUD DE USUARIOS: ELIMINAR
+        async function eliminarUsuarioWeb(username) {
+            if(!confirm(`¿Seguro que deseas eliminar al usuario "${username}"? Se desconectará de la App móvil.`)) return;
+
+            try {
+                const res = await fetch(`${API_URL}/api/usuarios/eliminar`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username })
+                });
+                if(res.ok) {
+                    alert("Usuario dado de baja exitosamente.");
+                    cargarUsuariosDelServidor();
+                }
+            } catch(err) { alert("Error de red."); }
+        }
+
+        // REPORTE DE PRODUCTIVIDAD
         btnReporte.addEventListener('click', () => {
             const totalTareas = listaTareasPendientes.length + listaTareasCompletadas.length;
             if (totalTareas === 0) {
-                alert("No se puede generar un reporte porque no hay tareas registradas para este usuario.");
+                alert("No hay tareas registradas para este usuario.");
                 return;
             }
 
@@ -606,23 +728,18 @@
             contenido += `--------------------------------------------------\n\n`;
             
             contenido += `LISTADO DETALLADO DE TAREAS:\n\n`;
-            
             contenido += `[TAREAS PENDIENTES]\n`;
             if (listaTareasPendientes.length === 0) {
                 contenido += ` - No hay tareas pendientes asignadas.\n`;
             } else {
-                listaTareasPendientes.forEach((t, i) => {
-                    contenido += ` ${i + 1}. [PENDIENTE] ${t}\n`;
-                });
+                listaTareasPendientes.forEach((t, i) => { contenido += ` ${i + 1}. [PENDIENTE] ${t}\n`; });
             }
             
             contenido += `\n[TAREAS COMPLETADAS]\n`;
             if (listaTareasCompletadas.length === 0) {
                 contenido += ` - No hay tareas completadas todavía.\n`;
             } else {
-                listaTareasCompletadas.forEach((t, i) => {
-                    contenido += ` ${i + 1}. [HECHO] ${t} (Finalizada)\n`;
-                });
+                listaTareasCompletadas.forEach((t, i) => { contenido += ` ${i + 1}. [HECHO] ${t}\n`; });
             }
 
             const blob = new Blob([contenido], { type: 'text/plain;charset=utf-8;' });
@@ -634,8 +751,8 @@
             document.body.removeChild(link);
         });
 
-        // CORRECCIÓN CLAVE: Renderiza las tareas asumiendo Strings puros como llegan del server.js
-        function renderizarTareas() {
+        // RENDERIZAR VISTA EN PANTALLA
+        function renderizerTareas() {
             countPending.textContent = `${listaTareasPendientes.length} pendientes`;
             countCompleted.textContent = `${listaTareasCompletadas.length} terminadas`;
 
@@ -646,7 +763,7 @@
                 listaTareasPendientes.forEach(tarea => {
                     const card = document.createElement('div');
                     card.className = 'task-card-pending';
-                    card.innerHTML = `<h3>${tarea}</h3>`; // tarea es un string directo
+                    card.innerHTML = `<h3>${tarea}</h3>`;
                     listPending.appendChild(card);
                 });
             }
@@ -664,7 +781,7 @@
             }
         }
 
-        // Consulta en bucle automático cada 3 segundos los cambios del servidor
+        // Consulta en bucle automático cada 3 segundos los cambios del servidor de forma asíncrona
         setInterval(traerDatosDelServidor, 3000);
     </script>
 </body>
