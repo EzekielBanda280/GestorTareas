@@ -13,6 +13,21 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Objeto dinámico para guardar los datos en memoria
 let usuariosSincronizados = {};
 
+/**
+ * FUNCIÓN AUXILIAR: Limpia las listas de tareas asegurando que todo sea un String plano.
+ * Si la app móvil manda un objeto como { texto: "Comer" } o { title: "Comer" }, extrae solo el texto.
+ */
+const normalizarListaTareas = (lista) => {
+    if (!Array.isArray(lista)) return [];
+    return lista.map(tarea => {
+        if (typeof tarea === 'object' && tarea !== null) {
+            // Intenta extraer los nombres de propiedades comunes que usan las apps móviles
+            return tarea.texto || tarea.title || tarea.description || JSON.stringify(tarea);
+        }
+        return String(tarea).trim();
+    });
+};
+
 // 2. RUTA RAÍZ: Apunta directamente al archivo index.html dentro de public
 app.get('/', (req, res) => {
     res.sendFile(path.resolve(__dirname, 'public', 'index.html'));
@@ -52,13 +67,14 @@ app.post('/api/sincronizar', (req, res) => {
 
     const userKey = usuarioActivo.toLowerCase().trim();
 
+    // Blindamos la entrada de datos de la App Móvil usando la función de normalización
     usuariosSincronizados[userKey] = {
         usuarioActivo: usuarioActivo,
-        pendientes: pendientes || [],
-        completadas: completadas || []
+        pendientes: normalizarListaTareas(pendientes),
+        completadas: normalizarListaTareas(completadas)
     };
 
-    console.log(`[Nube Render] ¡Datos sincronizados para el usuario: ${usuarioActivo}!`);
+    console.log(`[Nube Render] ¡Datos sincronizados y normalizados para el usuario: ${usuarioActivo}!`);
 
     res.status(200).json({
         mensaje: "Sincronización en la nube exitosa",
@@ -78,8 +94,16 @@ app.post('/api/tareas/crear', (req, res) => {
     if (!usuariosSincronizados[userKey]) {
         usuariosSincronizados[userKey] = { usuarioActivo: usuario, pendientes: [], completadas: [] };
     }
+    
     const lista = tipo === 'completada' ? 'completadas' : 'pendientes';
-    usuariosSincronizados[userKey][lista].push(texto);
+    
+    // Si el texto enviado por el front web es un objeto por error, lo extraemos bien
+    let textoLimpio = texto;
+    if (typeof texto === 'object' && texto !== null) {
+        textoLimpio = texto.texto || texto.title || JSON.stringify(texto);
+    }
+
+    usuariosSincronizados[userKey][lista].push(String(textoLimpio).trim());
     res.json({ mensaje: "Creado", datos: usuariosSincronizados[userKey] });
 });
 
@@ -89,7 +113,12 @@ app.put('/api/tareas/actualizar', (req, res) => {
     const lista = tipo === 'completada' ? 'completadas' : 'pendientes';
 
     if (usuariosSincronizados[userKey] && usuariosSincronizados[userKey][lista][index] !== undefined) {
-        usuariosSincronizados[userKey][lista][index] = nuevoTexto;
+        let textoLimpio = nuevoTexto;
+        if (typeof nuevoTexto === 'object' && nuevoTexto !== null) {
+            textoLimpio = nuevoTexto.texto || nuevoTexto.title || JSON.stringify(nuevoTexto);
+        }
+
+        usuariosSincronizados[userKey][lista][index] = String(textoLimpio).trim();
         return res.json({ mensaje: "Actualizado", datos: usuariosSincronizados[userKey] });
     }
     res.status(404).json({ error: "No encontrado" });
