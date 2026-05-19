@@ -38,7 +38,89 @@
             color: var(--text-main);
         }
 
-        /* --- MENÚ LATERAL (SOLUCIÓN COMPLETA A IMAGEN 533914) --- */
+        /* --- DISEÑO DE LA PANTALLA DE LOGIN --- */
+        .login-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100vw;
+            height: 100vh;
+            background-color: #0f172a;
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 9999;
+        }
+
+        .login-card {
+            background: #1e293b;
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+            color: white;
+            border: 1px solid #334155;
+        }
+
+        .login-card h2 {
+            margin-bottom: 10px;
+            font-size: 1.8rem;
+        }
+
+        .login-card p {
+            color: #94a3b8;
+            font-size: 0.9rem;
+            margin-bottom: 24px;
+        }
+
+        .login-field {
+            text-align: left;
+            margin-bottom: 20px;
+        }
+
+        .login-field label {
+            display: block;
+            font-size: 0.85rem;
+            color: #cbd5e1;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .login-input {
+            width: 100%;
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: 1px solid #475569;
+            background: #0f172a;
+            color: white;
+            font-size: 1rem;
+            outline: none;
+        }
+
+        .login-input:focus {
+            border-color: var(--primary);
+        }
+
+        .login-btn {
+            width: 100%;
+            padding: 12px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .login-btn:hover {
+            background: var(--primary-hover);
+        }
+
+        /* --- MENÚ LATERAL --- */
         .sidebar {
             width: 280px;
             background-color: var(--bg-sidebar);
@@ -60,7 +142,7 @@
             list-style: none;
             display: flex;
             flex-direction: column;
-            gap: 12px; /* Espaciado uniforme entre botones */
+            gap: 12px;
         }
 
         .menu-item {
@@ -84,7 +166,6 @@
             color: #ffffff;
         }
 
-        /* El botón activo ahora contiene su propio fondo sin desbordarse */
         .menu-item.active {
             background-color: var(--primary) !important;
             color: var(--text-sidebar-active) !important;
@@ -141,6 +222,17 @@
             background-color: var(--primary-hover);
         }
 
+        .btn-logout {
+            background-color: #ef4444;
+            color: white;
+            font-size: 0.85rem;
+            padding: 8px 14px;
+        }
+
+        .btn-logout:hover {
+            background-color: #dc2626;
+        }
+
         .user-tag {
             background-color: #f1f5f9;
             color: #475569;
@@ -158,7 +250,6 @@
             overflow-y: auto;
         }
 
-        /* Dashboard de Tareas */
         .dashboard-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -216,6 +307,8 @@
             border-left: 5px solid #ef4444;
             padding: 16px;
             border-radius: 10px;
+            color: var(--pending-text);
+            font-weight: 500;
         }
 
         .task-card-completed {
@@ -224,6 +317,8 @@
             border-left: 5px solid #22c55e;
             padding: 16px;
             border-radius: 10px;
+            color: var(--completed-text);
+            font-weight: 500;
         }
 
         .task-card-completed h3 {
@@ -279,6 +374,20 @@
 </head>
 <body>
 
+    <div class="login-container" id="login-screen">
+        <div class="login-card">
+            <h2>TaskMaster Pro</h2>
+            <p>Módulo de Sincronización Web</p>
+            <form id="login-form">
+                <div class="login-field">
+                    <label>Ingresa tu Usuario de la App</label>
+                    <input type="text" class="login-input" id="login-username" required placeholder="Ej: limon, banda, admin">
+                </div>
+                <button type="submit" class="login-btn">Acceder al Panel</button>
+            </form>
+        </div>
+    </div>
+
     <div class="sidebar">
         <div class="sidebar-brand">Menu</div>
         <ul class="sidebar-menu">
@@ -294,6 +403,7 @@
             <div class="topbar-actions">
                 <button class="btn btn-primary" id="btn-reporte">Generar reporte</button>
                 <div class="user-tag" id="user-display">Usuario: Ninguno</div>
+                <button class="btn btn-logout" id="btn-logout-action">Salir</button>
             </div>
         </div>
 
@@ -334,8 +444,7 @@
                             <th>Estado de Sincronización</th>
                         </tr>
                     </thead>
-                    <tbody id="table-users-body">
-                        </tbody>
+                    <tbody id="table-users-body"></tbody>
                 </table>
             </div>
 
@@ -343,6 +452,10 @@
     </div>
 
     <script>
+        // Captura automáticamente el dominio donde está corriendo (Render o Local)
+        const API_URL = window.location.origin;
+        let usuarioActivo = "";
+        
         let listaTareasPendientes = [];
         let listaTareasCompletadas = [];
         
@@ -360,7 +473,41 @@
         const btnReporte = document.getElementById('btn-reporte');
         const tableUsersBody = document.getElementById('table-users-body');
 
-        // NAVEGACIÓN ENTRE SECCIONES
+        // GESTIÓN DE SESIÓN
+        window.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const userParam = urlParams.get('usuario');
+            const localUser = localStorage.getItem('taskmaster_user');
+
+            if (userParam) {
+                iniciarPanel(userParam);
+            } else if (localUser) {
+                iniciarPanel(localUser);
+            }
+        });
+
+        document.getElementById('login-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const username = document.getElementById('login-username').value.trim();
+            if (username) {
+                localStorage.setItem('taskmaster_user', username);
+                window.history.pushState({}, '', `?usuario=${username}`);
+                iniciarPanel(username);
+            }
+        });
+
+        document.getElementById('btn-logout-action').addEventListener('click', () => {
+            localStorage.removeItem('taskmaster_user');
+            window.location.href = window.location.pathname; // Recarga limpio sin queries
+        });
+
+        function iniciarPanel(user) {
+            usuarioActivo = user;
+            document.getElementById('login-screen').classList.add('hidden');
+            traerDatosDelServidor();
+        }
+
+        // NAVEGACIÓN
         btnMenuTareas.addEventListener('click', () => {
             btnMenuTareas.classList.add('active');
             btnMenuUsuarios.classList.remove('active');
@@ -378,22 +525,25 @@
             actualizarTablaUsuarios(); 
         });
 
-        async function traerDatosDelServidorLocal() {
+        // PETICIÓN DINÁMICA REMOTA
+        async function traerDatosDelServidor() {
+            if (!usuarioActivo) return;
             try {
-                const respuesta = await fetch('https://gestor-de-tareas-9bl6.onrender.com');
+                // Consulta el endpoint pasándole el query param exacto del usuario activo
+                const respuesta = await fetch(`${API_URL}/api/tareas?usuario=${usuarioActivo}`);
                 const datos = await respuesta.json();
 
-                // Actualizar datos del usuario actual en el Dashboard
                 userDisplay.textContent = `Usuario: ${datos.usuarioActivo}`;
                 listaTareasPendientes = datos.pendientes;
                 listaTareasCompletadas = datos.completadas;
 
                 renderizarTareas();
                 
-                // Guardar en el historial local del navegador para simular "todos los registrados"
-                if (datos.usuarioActivo !== "Ninguno") {
+                // Guardar logs locales en la tabla de historial histórico
+                if (datos.usuarioActivo && datos.usuarioActivo !== "Ninguno") {
                     let historial = JSON.parse(localStorage.getItem('historialUsuarios')) || {};
-                    historial[datos.usuarioActivo] = {
+                    historial[datos.usuarioActivo.toLowerCase()] = {
+                        nombreOriginal: datos.usuarioActivo,
                         pendientesCount: datos.pendientes.length,
                         completadasCount: datos.completadas.length,
                         ultimaSincro: new Date().toLocaleTimeString()
@@ -402,7 +552,7 @@
                 }
 
             } catch (error) {
-                console.error("Error al conectar con el servidor local:", error);
+                console.error("Error al conectar con el backend de Render:", error);
             }
         }
 
@@ -417,35 +567,35 @@
                 return;
             }
 
-            usuarios.forEach(username => {
-                const userObj = historial[username];
+            usuarios.forEach(key => {
+                const userObj = historial[key];
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td><strong>${username}</strong></td>
+                    <td><strong>${userObj.nombreOriginal}</strong></td>
                     <td><span class="task-count">${userObj.pendientesCount} asignadas</span></td>
                     <td><span class="task-count" style="background-color:#dcfce7; color:#166534;">${userObj.completadasCount} terminadas</span></td>
-                    <td><span style="color:#22c55e; font-weight:600;">● En línea (${userObj.ultimaSincro})</span></td>
+                    <td><span style="color:#22c55e; font-weight:600;">● Sincronizado (${userObj.ultimaSincro})</span></td>
                 `;
                 tableUsersBody.appendChild(tr);
             });
         }
 
-btnReporte.addEventListener('click', () => {
+        // REPORTE DE TEXTO PLANO CORREGIDO (Lee strings nativos)
+        btnReporte.addEventListener('click', () => {
             const totalTareas = listaTareasPendientes.length + listaTareasCompletadas.length;
             if (totalTareas === 0) {
                 alert("No se puede generar un reporte porque no hay tareas registradas para este usuario.");
                 return;
             }
 
-            const usuarioActual = userDisplay.textContent.replace('Usuario: ', '');
             const porcentajeCumplimiento = ((listaTareasCompletadas.length / totalTareas) * 100).toFixed(1);
             const fechaActual = new Date().toLocaleDateString('es-ES');
             const horaActual = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
 
             let contenido = `==================================================\n`;
-            contenido += `        REPORTE DE PRODUCTIVIDAD - TASKMASTER PRO\n`;
+            contenido += `         REPORTE DE PRODUCTIVIDAD - TASKMASTER PRO\n`;
             contenido += `==================================================\n\n`;
-            contenido += `Usuario: ${usuarioActual}\n`;
+            contenido += `Usuario: ${usuarioActivo}\n`;
             contenido += `Fecha de generación: ${fechaActual} a las ${horaActual} horas\n`;
             contenido += `--------------------------------------------------\n`;
             contenido += `MÉTRICAS GENERALES:\n`;
@@ -462,7 +612,7 @@ btnReporte.addEventListener('click', () => {
                 contenido += ` - No hay tareas pendientes asignadas.\n`;
             } else {
                 listaTareasPendientes.forEach((t, i) => {
-                    contenido += ` ${i + 1}. [PENDIENTE] ${t.texto}\n`;
+                    contenido += ` ${i + 1}. [PENDIENTE] ${t}\n`;
                 });
             }
             
@@ -471,20 +621,20 @@ btnReporte.addEventListener('click', () => {
                 contenido += ` - No hay tareas completadas todavía.\n`;
             } else {
                 listaTareasCompletadas.forEach((t, i) => {
-                    contenido += ` ${i + 1}. [HECHO] ${t.texto} (Finalizada el: ${t.fecha || 'Reciente'})\n`;
+                    contenido += ` ${i + 1}. [HECHO] ${t} (Finalizada)\n`;
                 });
             }
-
 
             const blob = new Blob([contenido], { type: 'text/plain;charset=utf-8;' });
             const link = document.createElement("a");
             link.href = URL.createObjectURL(blob);
-            link.setAttribute("download", `Reporte_${usuarioActual}_${fechaActual.replace(/\//g, '-')}.txt`);
+            link.setAttribute("download", `Reporte_${usuarioActivo}_${fechaActual.replace(/\//g, '-')}.txt`);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
         });
 
+        // CORRECCIÓN CLAVE: Renderiza las tareas asumiendo Strings puros como llegan del server.js
         function renderizarTareas() {
             countPending.textContent = `${listaTareasPendientes.length} pendientes`;
             countCompleted.textContent = `${listaTareasCompletadas.length} terminadas`;
@@ -496,7 +646,7 @@ btnReporte.addEventListener('click', () => {
                 listaTareasPendientes.forEach(tarea => {
                     const card = document.createElement('div');
                     card.className = 'task-card-pending';
-                    card.innerHTML = `<h3>${tarea.texto}</h3>`;
+                    card.innerHTML = `<h3>${tarea}</h3>`; // tarea es un string directo
                     listPending.appendChild(card);
                 });
             }
@@ -508,14 +658,14 @@ btnReporte.addEventListener('click', () => {
                 listaTareasCompletadas.forEach(tarea => {
                     const card = document.createElement('div');
                     card.className = 'task-card-completed';
-                    card.innerHTML = `<h3>${tarea.texto}</h3><div class="task-date">Completada el: ${tarea.fecha}</div>`;
+                    card.innerHTML = `<h3>${tarea}</h3><div class="task-date">Completada con éxito</div>`;
                     listCompleted.appendChild(card);
                 });
             }
         }
 
-        setInterval(traerDatosDelServidorLocal, 3000);
-        traerDatosDelServidorLocal();
+        // Consulta en bucle automático cada 3 segundos los cambios del servidor
+        setInterval(traerDatosDelServidor, 3000);
     </script>
 </body>
 </html>
