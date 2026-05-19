@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path'); 
-const fs = require('fs'); // <--- Añadido para guardar datos en disco
+const fs = require('fs'); 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -63,7 +63,6 @@ app.post('/api/login', (req, res) => {
 
     const userKey = usuario.toLowerCase().trim();
     
-    // Recargar desde el archivo por si acaso hubo cambios externos
     sistemaUsuarios = cargarUsuarios();
     const cuenta = sistemaUsuarios[userKey];
 
@@ -78,7 +77,6 @@ app.post('/api/login', (req, res) => {
 // 👥 CRUD DE USUARIOS (Para el Administrador Web)
 // ========================================================
 
-// 1. LEER (Obtener todos los usuarios del sistema)
 app.get('/api/usuarios', (req, res) => {
     sistemaUsuarios = cargarUsuarios();
     const lista = Object.keys(sistemaUsuarios).map(key => ({
@@ -90,7 +88,6 @@ app.get('/api/usuarios', (req, res) => {
     res.json(lista);
 });
 
-// 2. CREAR (Registrar nuevo usuario desde la Web o App de forma persistente)
 app.post('/api/usuarios/crear', (req, res) => {
     const { username, contrasena } = req.body;
     if (!username || !contrasena) return res.status(400).json({ error: "Datos insuficientes para crear usuario" });
@@ -109,11 +106,10 @@ app.post('/api/usuarios/crear', (req, res) => {
         completadas: []
     };
 
-    guardarUsuarios(sistemaUsuarios); // <--- Guarda los cambios en el disco duro
+    guardarUsuarios(sistemaUsuarios);
     res.json({ mensaje: "Usuario creado exitosamente" });
 });
 
-// 3. ACTUALIZAR (Modificar contraseña desde la Web)
 app.put('/api/usuarios/actualizar', (req, res) => {
     const { username, nuevaContrasena } = req.body;
     const userKey = (username || "").toLowerCase().trim();
@@ -127,7 +123,6 @@ app.put('/api/usuarios/actualizar', (req, res) => {
     res.status(404).json({ error: "Usuario no encontrado" });
 });
 
-// 4. ELIMINAR (Dar de baja un usuario y sus datos)
 app.delete('/api/usuarios/eliminar', (req, res) => {
     const { username } = req.body;
     const userKey = (username || "").toLowerCase().trim();
@@ -166,10 +161,9 @@ app.post('/api/sincronizar', (req, res) => {
     const userKey = (usuarioActivo || "").toLowerCase().trim();
     sistemaUsuarios = cargarUsuarios();
     
-    // Auto-registro de contingencia: si la app sincroniza un usuario que el servidor perdió por reinicio, lo vuelve a dar de alta de forma automática.
     if (!sistemaUsuarios[userKey]) {
         sistemaUsuarios[userKey] = {
-            contrasena: "789", // Asigna la clave base por defecto informada por el usuario
+            contrasena: "789", 
             usuarioActivo: usuarioActivo,
             pendientes: [],
             completadas: []
@@ -228,10 +222,24 @@ app.delete('/api/tareas/eliminar', (req, res) => {
     res.status(404).json({ error: "No se pudo eliminar" });
 });
 
-app.listen(PORT, () => {
-    console.log(`Servidor de Render corriendo en el puerto ${PORT}`);
+// ========================================================
+// 🔄 LEVANTAMIENTO Y MANEJO DE CIERRE LIMPIO (Para Render)
+// ========================================================
+const server = app.listen(PORT, () => {
+    console.log(`Servidor de Render corriendo de forma segura en el puerto ${PORT}`);
 });
 
-app.listen(PORT, () => {
-    console.log(`Servidor de Render corriendo en el puerto ${PORT}`);
+// Captura las señales de apagado de Render para liberar el puerto inmediatamente
+process.on('SIGTERM', () => {
+    console.log('Señal SIGTERM recibida. Cerrando servidor de forma limpia...');
+    server.close(() => {
+        console.log('Puerto liberado con éxito.');
+        process.exit(0);
+    });
+});
+
+process.on('SIGINT', () => {
+    server.close(() => {
+        process.exit(0);
+    });
 });
