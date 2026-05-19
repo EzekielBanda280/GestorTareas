@@ -10,11 +10,8 @@ app.use(express.json());
 // Servir archivos estáticos desde la carpeta 'public'
 app.use(express.static(path.join(__dirname, 'public')));
 
-// BASE DE DATOS EN MEMORIA (Usuarios y sus Tareas)
-let sistemaUsuarios = {
-    "banda": { contrasena: "1234", usuarioActivo: "banda", pendientes: ["Comer", "limpiar", "barrer"], completadas: [] },
-    "limon": { contrasena: "4321", usuarioActivo: "limon", pendientes: [], completadas: [] }
-};
+// BASE DE DATOS EN MEMORIA (Inicia 100% vacía como debe ser)
+let sistemaUsuarios = {};
 
 // Función auxiliar para limpiar strings de la App Móvil
 const normalizarListaTareas = (lista) => {
@@ -54,7 +51,6 @@ app.post('/api/login', (req, res) => {
 
 // 1. LEER (Obtener todos los usuarios del sistema)
 app.get('/api/usuarios', (req, res) => {
-    // Mapeamos para enviar la lista sin alterar la estructura interna
     const lista = Object.keys(sistemaUsuarios).map(key => ({
         id: key,
         username: sistemaUsuarios[key].usuarioActivo,
@@ -131,13 +127,13 @@ app.post('/api/sincronizar', (req, res) => {
     const { usuarioActivo, pendientes, completadas } = req.body;
     const userKey = (usuarioActivo || "").toLowerCase().trim();
     
-    // Verificación en tiempo real: Si la app móvil intenta sincronizar un usuario borrado en la web, rebota.
     if (!sistemaUsuarios[userKey]) {
         return res.status(403).json({ error: "Acceso denegado. Este usuario fue eliminado por el administrador." });
     }
 
-    sistemaUsuarios[userKey].pendientes = normalizerListaTareas(pendientes);
-    sistemaUsuarios[userKey].completadas = normalizerListaTareas(completadas);
+    // Corregido: Se cambió "normalizerListaTareas" por "normalizarListaTareas"
+    sistemaUsuarios[userKey].pendientes = normalizarListaTareas(pendientes);
+    sistemaUsuarios[userKey].completadas = normalizarListaTareas(completadas);
 
     console.log(`[Sincro masiva] Actualizado el usuario: ${usuarioActivo}`);
     res.status(200).json({ mensaje: "Sincronización en la nube exitosa", status: "OK" });
